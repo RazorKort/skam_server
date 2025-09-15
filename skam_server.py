@@ -20,7 +20,8 @@ async def websocket_endpoint(ws: WebSocket):
         while True:
             msg = await ws.receive_text()
             for client in clients:
-                await client.send_text(msg)
+                if client is not ws:
+                    await client.send_text(msg)
     except Exception:
         pass
     finally:
