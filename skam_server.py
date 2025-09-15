@@ -1,24 +1,30 @@
-import asyncio
-import websockets
 import os
+import asyncio
+from fastapi import FastAPI, WebSocket
+import uvicorn
 
-clients=()
+app = FastAPI()
+clients = set()
 
-async def handler(websocket, path):
-    clients.add(websocket)
+@app.get("/")
+async def healthcheck():
+    return {"status": "ok"}
+
+@app.websocket("/ws")
+async def websocket_endpoint(ws: WebSocket):
+    await ws.accept()
+    clients.add(ws)
     try:
-        async for message in websocket:
+        while True:
+            msg = await ws.receive_text()
             for client in clients:
-                if client != websocket:
-                    await client.send(message)
+                if client != ws:
+                    await client.send_text(msg)
+    except Exception:
+        pass
     finally:
-        clients.remove(websocket)
-        
-async def main():
-    port = int(os.environ.get('PORT',10000))
-    async with websockets.serve(handler,'0.0.0.0',port):
-        print(f'Server started on port {port}')
-        await asyncio.Future()
-    
-if __name__ == '__main__':
-    asyncio.run(main())
+        clients.remove(ws)
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 10000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
