@@ -6,7 +6,9 @@ import uvicorn
 app = FastAPI()
 clients = set()
 
-@app.get("/")
+
+@app.get("/", include_in_schema=False)
+@app.head("/", include_in_schema=False)
 async def healthcheck():
     return {"status": "ok"}
 
