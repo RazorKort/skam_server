@@ -32,7 +32,7 @@ async def healthcheck():
 @app.post('/auth')
 async def auth(user: UserAuth):
 
-    query = 'SELECT id, name FROM users WHERE uuid = $1'
+    query = 'SELECT id, nickname FROM users WHERE uuid = $1'
     async with app.state.pool.acquire() as conn:
         row = await conn.fetchrow(query, user.uuid)
     if row:
@@ -46,7 +46,7 @@ async def register(user: UserAuth):
     if not user.name:
         raise HTTPException(status_code = 400, detail = 'Name rquired')
     user_uuid = str(uuid.uuid4())
-    query = 'INSERT INTO users (uuid, name) VALUES ($1, $2) RETURNING id'
+    query = 'INSERT INTO users (uuid, nickname) VALUES ($1, $2) RETURNING id'
     async with app.state.pool.acquire() as conn:
         user_id = await conn.fetchval(query, user_uuid, user.name)
     return {'status': 'ok', 'user_id': user_id, 'uuid': user_uuid}
