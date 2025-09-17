@@ -12,8 +12,8 @@ DATABASE_URL = os.environ.get('DATABASE_URL')
 
 class UserAuth(BaseModel):
     name:str
-    uuid:str
-    user_id:int
+    uuid:str | None = None
+    user_id:int | None = None
     
 
 @app.on_event('startup')
