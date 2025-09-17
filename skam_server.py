@@ -1,7 +1,7 @@
 import os
 import asyncio
 import uuid
-from fastapi import FastAPI, WebSocket, HTTPException
+from fastapi import FastAPI, WebSocket, HTTPException, JSONResponse
 import uvicorn
 import asyncpg
 from pydantic import BaseModel
@@ -10,10 +10,11 @@ app = FastAPI()
 clients = set()
 DATABASE_URL = os.environ.get('DATABASE_URL')
 
-class UserAuth(BaseModel):
-    name:str
+class AuthRequest(BaseModel):
     uuid:str | None = None
-    user_id:int | None = None
+    
+class RegisterRequest(BaseModel):
+    name: str | None = None
     
 
 @app.on_event('startup')
@@ -30,7 +31,7 @@ async def healthcheck():
     return {"status": "ok"}
 
 @app.post('/auth')
-async def auth(user: UserAuth):
+async def auth(user: AuthRequest):
 
     query = 'SELECT id, nickname FROM users WHERE uuid = $1'
     async with app.state.pool.acquire() as conn:
@@ -42,14 +43,17 @@ async def auth(user: UserAuth):
     
 
 @app.post('/register')
-async def register(user: UserAuth):
+async def register(user: RegisterRequest):
     if not user.name:
         raise HTTPException(status_code = 400, detail = 'Name rquired')
     user_uuid = str(uuid.uuid4())
     query = 'INSERT INTO users (uuid, nickname) VALUES ($1, $2) RETURNING id'
     async with app.state.pool.acquire() as conn:
         user_id = await conn.fetchval(query, user_uuid, user.name)
-    return {'status': 'ok', 'user_id': user_id, 'uuid': user_uuid}
+    if user_id:
+        return {'status': 'ok', 'user_id': user_id, 'uuid': user_uuid}
+    else:
+        return JSONResponse(status_code = 401, content = {'status':'error', 'detail':'Unauthorized'})
 
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):
