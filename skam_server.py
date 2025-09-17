@@ -1,7 +1,8 @@
 import os
 import asyncio
 import uuid
-from fastapi import FastAPI, WebSocket, HTTPException, JSONResponse
+from fastapi import FastAPI, WebSocket, HTTPException
+from fastapi.responses import JSONResponse
 import uvicorn
 import asyncpg
 from pydantic import BaseModel
