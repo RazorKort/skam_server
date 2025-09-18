@@ -1,3 +1,4 @@
+
 import os
 import asyncio
 import uuid
@@ -6,10 +7,13 @@ from fastapi.responses import JSONResponse
 import uvicorn
 import asyncpg
 from pydantic import BaseModel
+import jwt
 
 app = FastAPI()
 clients = set()
 DATABASE_URL = os.environ.get('DATABASE_URL')
+JWT_SECRET = os.environ.get('JWT_SECRET', 'secretkey228rfrfuhrs4fs')
+JWT_ALGORITHM = 'HS256'
 
 class AuthRequest(BaseModel):
     uuid:str | None = None
@@ -37,10 +41,12 @@ async def auth(user: AuthRequest):
     query = 'SELECT id, nickname FROM users WHERE uuid = $1'
     async with app.state.pool.acquire() as conn:
         row = await conn.fetchrow(query, user.uuid)
-    if row:
-        return {'status': 'ok', 'name': row['name'], 'user_id': row['id']}
-    else:
+    if not row:
         raise HTTPException(status_code = 401, detail = 'User not found')
+        
+    else:
+        token = create_jwt(row['id'])
+        return {'status': 'ok', 'name': row['name'], 'token': token}
     
 
 @app.post('/register')
@@ -51,25 +57,46 @@ async def register(user: RegisterRequest):
     query = 'INSERT INTO users (uuid, nickname) VALUES ($1, $2) RETURNING id'
     async with app.state.pool.acquire() as conn:
         user_id = await conn.fetchval(query, user_uuid, user.name)
+        
     if user_id:
-        return {'status': 'ok', 'user_id': user_id, 'uuid': user_uuid}
+        token = create_jwt(user_id)
+        return {'status': 'ok', 'uuid': user_uuid, 'token':token}
     else:
         return JSONResponse(status_code = 401, content = {'status':'error', 'detail':'Unauthorized'})
 
 @app.websocket("/ws")
-async def websocket_endpoint(ws: WebSocket):
+async def websocket_endpoint(ws: WebSocket, token:str):
+    try:
+        user_id = decode_jwt(token)
+    except HTTPException:
+        await ws.close(code = 1008)
+        return
     await ws.accept()
-    clients.add(ws)
+    clients[user_id] = ws
     try:
         while True:
-            msg = await ws.receive_text()
-            for client in clients:
-                if client is not ws:
-                    await client.send_text(msg)
+            msg_data = await ws.recieve_json()
+            target_id = msg_data.json().get('target_id')
+            message = msg_data.json().get('message')
+            name = msg_data.json().get('name')
+            if target_id in clients:
+                await clients[target_id].send_json({'from':user_id, 'message':message, 'name':name})
     except Exception:
         pass
     finally:
-        clients.remove(ws)
+        clients.pop(user_id, None)
+
+def create_jwt(user_id: int):
+    payload = {'user_id': user_id}
+    return jwt.encode(payload, JWT_SECRET, algorithm = JWT_ALGORITHM)
+
+def decode_jwt(token: str):
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        return payload['user_id']
+    except jwt.PyJWTError:
+        raise HTTPException(status_code = 401, detail = 'Invalid token')
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
