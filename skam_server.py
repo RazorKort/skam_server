@@ -72,6 +72,7 @@ async def websocket_endpoint(ws: WebSocket, token:str):
         await ws.close(code = 1008)
         return
     await ws.accept()
+    clients={}
     clients[user_id] = ws
     try:
         while True:
