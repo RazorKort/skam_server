@@ -46,7 +46,7 @@ async def auth(user: AuthRequest):
         
     else:
         token = create_jwt(row['id'])
-        return {'status': 'ok', 'name': row['name'], 'token': token}
+        return {'status': 'ok', 'name': row['nickname'], 'token': token}
     
 
 @app.post('/register')
