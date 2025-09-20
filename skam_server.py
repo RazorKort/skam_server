@@ -1,4 +1,4 @@
-
+import logging
 import os
 import asyncio
 import uuid
@@ -11,6 +11,7 @@ import jwt
 
 app = FastAPI()
 clients = set()
+logging.basicConfig(level = logging.INFO)
 DATABASE_URL = os.environ.get('DATABASE_URL')
 JWT_SECRET = os.environ.get('JWT_SECRET', 'secretkey228rfrfuhrs4fs')
 JWT_ALGORITHM = 'HS256'
@@ -68,7 +69,7 @@ async def register(user: RegisterRequest):
 async def websocket_endpoint(ws: WebSocket, token:str):
     try:
         user_id = decode_jwt(token)
-        print('получил и расшифровал токен')
+        logging.info('получил и расшифровал токен')
     except HTTPException:
         await ws.close(code = 1008)
         return
@@ -78,14 +79,14 @@ async def websocket_endpoint(ws: WebSocket, token:str):
     try:
         while True:
             msg_data = await ws.recieve_json()
-            print('получил сообщение')
+            logging.info('получил сообщение')
             target_id = msg_data.json().get('target_id')
             message = msg_data.json().get('message')
             name = msg_data.json().get('name')
-            print(target_id, name, message)
+            logging.info(target_id, name, message)
             if target_id in clients:
                 await clients[target_id].send_json({'from':user_id, 'message':message, 'name':name})
-                print('отправил сообщение')
+                logging.info('отправил сообщение')
     except Exception:
         pass
     finally:
@@ -96,8 +97,10 @@ def create_jwt(user_id: int):
     return jwt.encode(payload, JWT_SECRET, algorithm = JWT_ALGORITHM)
 
 def decode_jwt(token: str):
+    logging.info('пытаюсь расфифровать токен')
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        logging.info('расшифровал')
         return payload['user_id']
     except jwt.PyJWTError:
         raise HTTPException(status_code = 401, detail = 'Invalid token')
