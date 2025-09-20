@@ -71,7 +71,7 @@ async def get_friends(token: str):
     user_id = decode_jwt(token)
     query = 'SELECT friend_id, nickname FROM friends WHERE user_id = $1'
     async with app.state.pool.acquire() as conn:
-        rows = await conn.fetchrow(query, user_id)
+        rows = await conn.fetch(query, user_id)
     if not rows:
         return {'status':'lonely'}
     else:
