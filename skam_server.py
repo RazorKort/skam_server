@@ -64,12 +64,24 @@ async def register(user: RegisterRequest):
         return {'status': 'ok', 'uuid': user_uuid, 'token':token}
     else:
         return JSONResponse(status_code = 401, content = {'status':'error', 'detail':'Unauthorized'})
+    
+
+@app.post('/friends')
+async def get_friends(token: str):
+    user_id = decode_jwt(token)
+    query = 'SELECT friend_id, nickname FROM friends WHERE user_id = $1'
+    async with app.state.pool.acquire() as conn:
+        rows = await conn.fetchrow(query, user_id)
+    if not rows:
+        return {'status':'lonely'}
+    else:
+        friends = [dict(row) for row in rows]
+        return {'status':'ok', 'friends':friends}
 
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket, token:str):
     try:
         user_id = decode_jwt(token)
-        logging.info('получил и расшифровал токен')
     except HTTPException:
         await ws.close(code = 1008)
         return
@@ -78,14 +90,13 @@ async def websocket_endpoint(ws: WebSocket, token:str):
     try:
         while True:
             msg_data = await ws.receive_json()
-            logging.info('получил сообщение')
             target_id = msg_data.get('target_id')
             message = msg_data.get('message')
             name = msg_data.get('name')
             logging.info(f'{target_id}, {name}, {message}')
             if target_id in clients:
                 await clients[target_id].send_json({'from':user_id, 'message':message, 'name':name})
-                logging.info('отправил сообщение')
+
     except Exception:
         pass
     finally:
@@ -96,10 +107,8 @@ def create_jwt(user_id: int):
     return jwt.encode(payload, JWT_SECRET, algorithm = JWT_ALGORITHM)
 
 def decode_jwt(token: str):
-    logging.info('пытаюсь расфифровать токен')
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-        logging.info('расшифровал')
         return payload['user_id']
     except jwt.PyJWTError:
         raise HTTPException(status_code = 401, detail = 'Invalid token')
