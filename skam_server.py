@@ -68,7 +68,7 @@ async def register(user: RegisterRequest):
 async def websocket_endpoint(ws: WebSocket, token:str):
     try:
         user_id = decode_jwt(token)
-        print('получил и расшифровал токен')
+        print('РїРѕР»СѓС‡РёР» Рё СЂР°СЃС€РёС„СЂРѕРІР°Р» С‚РѕРєРµРЅ')
     except HTTPException:
         await ws.close(code = 1008)
         return
@@ -78,14 +78,14 @@ async def websocket_endpoint(ws: WebSocket, token:str):
     try:
         while True:
             msg_data = await ws.recieve_json()
-            print('получил сообщение')
+            print('РїРѕР»СѓС‡РёР» СЃРѕРѕР±С‰РµРЅРёРµ')
             target_id = msg_data.json().get('target_id')
             message = msg_data.json().get('message')
             name = msg_data.json().get('name')
             print(target_id, name, message)
             if target_id in clients:
                 await clients[target_id].send_json({'from':user_id, 'message':message, 'name':name})
-                print('отправил сообщение')
+                print('РѕС‚РїСЂР°РІРёР» СЃРѕРѕР±С‰РµРЅРёРµ')
     except Exception:
         pass
     finally:
