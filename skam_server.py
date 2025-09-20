@@ -10,7 +10,7 @@ from pydantic import BaseModel
 import jwt
 
 app = FastAPI()
-clients = set()
+clients = {}
 logging.basicConfig(level = logging.INFO)
 DATABASE_URL = os.environ.get('DATABASE_URL')
 JWT_SECRET = os.environ.get('JWT_SECRET', 'secretkey228rfrfuhrs4fs')
@@ -74,16 +74,15 @@ async def websocket_endpoint(ws: WebSocket, token:str):
         await ws.close(code = 1008)
         return
     await ws.accept()
-    clients={}
     clients[user_id] = ws
     try:
         while True:
-            msg_data = await ws.recieve_json()
+            msg_data = await ws.receive_json()
             logging.info('получил сообщение')
-            target_id = msg_data.json().get('target_id')
-            message = msg_data.json().get('message')
-            name = msg_data.json().get('name')
-            logging.info(target_id, name, message)
+            target_id = msg_data.get('target_id')
+            message = msg_data.get('message')
+            name = msg_data.get('name')
+            logging.info(f'{target_id}, {name}, {message}')
             if target_id in clients:
                 await clients[target_id].send_json({'from':user_id, 'message':message, 'name':name})
                 logging.info('отправил сообщение')
