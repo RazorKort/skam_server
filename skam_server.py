@@ -83,7 +83,7 @@ async def addfr(token: str, friend_id: int):
     user_id = decode_jwt(token)
     query = 'SELECT nickname FROM users WHERE id = $1'
     async with app.state.pool.acquire() as conn:
-        name = await conn.fetchval(query,user_id)
+        name = await conn.fetchval(query,friend_id)
     if name is not None:
         query = 'INSERT INTO friends (user_id, friend_id, nickname) VALUES ($1, $2, $3)'
         async with app.state.pool.acquire() as conn:
