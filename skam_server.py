@@ -78,6 +78,21 @@ async def get_friends(token: str):
         friends = [dict(row) for row in rows]
         return {'status':'ok', 'friends':friends}
 
+@app.post('/addfr')
+async def addfr(token: str, friend_id: int):
+    user_id = decode_jwt(token)
+    query = 'SELECT nickname FROM users WHERE user_id = $1'
+    async with app.state.pool.acquire() as conn:
+        name = await conn.fetchval(query,user_id)
+    if name is not None:
+        query = 'INSERT INTO friends (user_id, friend_id, nickname) VALUES ($1, $2, $3)'
+        async with app.state.pool.acquire() as conn:
+            await conn.fetch(query, user_id, friend_id, name)
+            return {'status':'ok'}
+    else:
+        raise HTTPException(status_code = 404, detail = 'User not found')
+    
+
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket, token:str):
     try:
