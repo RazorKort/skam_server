@@ -99,7 +99,7 @@ async def msgs(token: str, friend_id: int):
     async with app.state.pool.acquire() as conn:
         rows = await conn.fetch(query, user_id, friend_id)
         if not rows:
-            return {'status':'none', 'message':'сообщений нет'}
+            return {'status':'none', 'message':'СЃРѕРѕР±С‰РµРЅРёР№ РЅРµС‚'}
         else: 
             messages = [dict(row) for row in rows]
             return {'status':'ok', 'messages':messages}
