@@ -92,7 +92,18 @@ async def addfr(token: str, friend_id: int):
     else:
         raise HTTPException(status_code = 404, detail = 'User not found')
     
-
+@app.post('/msgs')
+async def msgs(token: str, friend_id: int):
+    user_id = decode_jwt(token)
+    query = 'SELECT * FROM messages WHERE sender_id = $1, receiver_id = $1'
+    async with app.state.pool.acquire() as conn:
+        rows = await conn.fetch(query, user_id, friend_id)
+        if not rows:
+            return {'status':'none', 'message':'сообщений нет'}
+        else: 
+            messages = [dict(row) for row in rows]
+            return {'status':'ok', 'messages':messages}
+    
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket, token:str):
     try:
@@ -109,6 +120,12 @@ async def websocket_endpoint(ws: WebSocket, token:str):
             message = msg_data.get('message')
             name = msg_data.get('name')
             logging.info(f'{target_id}, {name}, {message}')
+            
+            query = 'INSERT INTO messages (sender_id, receiver_id, message, name) VALUES ($1, $2, $3, $4'
+            async with app.state.pool.acquire() as conn:
+                await conn.fatch(query, user_id, target_id, message, name)
+
+
             if target_id in clients:
                 await clients[target_id].send_json({'from':user_id, 'message':message, 'name':name})
 
