@@ -95,7 +95,7 @@ async def addfr(token: str, friend_id: int):
 @app.post('/msgs')
 async def msgs(token: str, friend_id: int):
     user_id = decode_jwt(token)
-    query = 'SELECT * FROM messages WHERE sender_id = $1, receiver_id = $1'
+    query = 'SELECT * FROM messages WHERE sender_id = $1 AND receiver_id = $1'
     async with app.state.pool.acquire() as conn:
         rows = await conn.fetch(query, user_id, friend_id)
         if not rows:
