@@ -87,7 +87,7 @@ async def addfr(token: str, friend_id: int):
     if name is not None:
         query = 'INSERT INTO friends (user_id, friend_id, nickname) VALUES ($1, $2, $3)'
         async with app.state.pool.acquire() as conn:
-            await conn.fetch(query, user_id, friend_id, name)
+            await conn.execute(query, user_id, friend_id, name)
             return {'status':'ok'}
     else:
         raise HTTPException(status_code = 404, detail = 'User not found')
