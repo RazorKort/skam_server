@@ -121,7 +121,7 @@ async def websocket_endpoint(ws: WebSocket, token:str):
             name = msg_data.get('name')
             logging.info(f'{target_id}, {name}, {message}')
             
-            query = 'INSERT INTO messages (sender_id, receiver_id, message, name) VALUES ($1, $2, $3, $4'
+            query = 'INSERT INTO messages (sender_id, receiver_id, message, name) VALUES ($1, $2, $3, $4)'
             async with app.state.pool.acquire() as conn:
                 await conn.fatch(query, user_id, target_id, message, name)
 
