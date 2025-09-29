@@ -1,7 +1,13 @@
 import logging
 import os
 import asyncio
-import uuid
+import secrets
+import nacl
+
+from nacl.signing import VerifyKey
+from nacl.exceptions import BadSignatureError
+import base64
+
 from fastapi import FastAPI, WebSocket, HTTPException
 from fastapi.responses import JSONResponse
 import uvicorn
@@ -11,16 +17,22 @@ import jwt
 
 app = FastAPI()
 clients = {}
+challenges = {}
 logging.basicConfig(level = logging.INFO)
 DATABASE_URL = os.environ.get('DATABASE_URL')
 JWT_SECRET = os.environ.get('JWT_SECRET', 'secretkey228rfrfuhrs4fs')
 JWT_ALGORITHM = 'HS256'
 
 class AuthRequest(BaseModel):
-    uuid:str | None = None
+    public_key:str | None = None
+    
+class AuthVerify(BaseModel):
+    signed_seed: str | None = None
+    public_key: str | None = None
     
 class RegisterRequest(BaseModel):
     name: str | None = None
+    public_key: str | None = None
     
 
 @app.on_event('startup')
@@ -36,32 +48,56 @@ async def shutdown():
 async def healthcheck():
     return {"status": "ok"}
 
-@app.post('/auth')
+@app.post('/auth-request')
 async def auth(user: AuthRequest):
 
-    query = 'SELECT id, nickname FROM users WHERE uuid = $1'
+    query = 'SELECT id FROM users WHERE public_key = $1'
     async with app.state.pool.acquire() as conn:
-        row = await conn.fetchrow(query, user.uuid)
+        row = await conn.fetchrow(query, user.public_key)
     if not row:
         raise HTTPException(status_code = 401, detail = 'User not found')
         
     else:
-        token = create_jwt(row['id'])
-        return {'status': 'ok', 'name': row['nickname'], 'token': token}
+        seed = secrets.token_urlsafe(32)
+        challenges[user.public_key] = seed
+        return {'status': 'ok', 'seed': seed}
+ 
+    
+@app.post('/auth-verify')
+async def auth(user: AuthVerify):
+    query = 'SELECT id FROM users WHERE public_key = $1'
+    async with app.state.pool.acquire() as conn:
+        row = await conn.fetchrow(query, user.public_key)
+    if not row:
+        raise HTTPException(status_code = 401, detail = 'User not found')
+    user_id = row['id']
+    if user.public_key not in challenges:
+        return {'status': 'error'}
+    try:
+        verify_key = VerifyKey(base64.b64decode(user.public_key))
+        signature_bytes = base64.b64decode(user.signed_seed)
+        seed = challenges[user.public_key]
+        verify_key.verify(seed.encode, signature_bytes)
+        jwt = create_jwt(user_id)
+        challenges.pop(user.public_key, None)
+        return {'status': 'ok', 'token': jwt, 'id': user_id}
+        
+    except BadSignatureError:
+        return {'status': 'error'}
+    
     
 
 @app.post('/register')
 async def register(user: RegisterRequest):
     if not user.name:
         raise HTTPException(status_code = 400, detail = 'Name rquired')
-    user_uuid = str(uuid.uuid4())
-    query = 'INSERT INTO users (uuid, nickname) VALUES ($1, $2) RETURNING id'
+    query = 'INSERT INTO users (public_key, nickname) VALUES ($1, $2) RETURNING id'
     async with app.state.pool.acquire() as conn:
-        user_id = await conn.fetchval(query, user_uuid, user.name)
+        user_id = await conn.fetchval(query, user.public_key, user.name)
         
     if user_id:
         token = create_jwt(user_id)
-        return {'status': 'ok', 'uuid': user_uuid, 'token':token}
+        return {'status': 'ok', 'id': user_id, 'token':token}
     else:
         return JSONResponse(status_code = 401, content = {'status':'error', 'detail':'Unauthorized'})
     
