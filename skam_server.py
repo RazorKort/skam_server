@@ -81,7 +81,7 @@ async def auth(user: AuthVerify):
         verify_key = VerifyKey(base64.b64decode(user.public_key))
         signature_bytes = base64.b64decode(user.signed_seed)
         seed = challenges[user.public_key]
-        verify_key.verify(seed.encode, signature_bytes)
+        verify_key.verify(seed.encode(), signature_bytes)
         jwt = create_jwt(user_id)
         challenges.pop(user.public_key, None)
         return {'status': 'ok', 'token': jwt, 'id': user_id}
