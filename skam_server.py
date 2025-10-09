@@ -65,9 +65,13 @@ async def auth(user: AuthRequest):
     
 @app.post('/auth-verify')
 async def auth(user: AuthVerify):
+    logging.info(f'{user.public_key}')
+    signed_bytes = base64.b64decode(user.signed_seed)
+    public_key = base64.b64decode(user.public_key)
+    logging.info(f'{public_key}')
     query = 'SELECT id FROM users WHERE public_key = $1'
     async with app.state.pool.acquire() as conn:
-        row = await conn.fetchrow(query, user.public_key)
+        row = await conn.fetchrow(query, public_key)
     if not row:
         raise HTTPException(status_code = 401, detail = 'User not found')
     user_id = row['id']
