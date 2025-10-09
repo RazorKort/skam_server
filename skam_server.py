@@ -86,7 +86,8 @@ async def auth(user: AuthVerify):
         challenges.pop(user.public_key, None)
         return {'status': 'ok', 'token': jwt, 'id': user_id}
         
-    except BadSignatureError:
+    except :
+        logging.info(Exception)
         return {'status': 'error'}
     
     
