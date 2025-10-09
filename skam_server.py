@@ -86,8 +86,8 @@ async def auth(user: AuthVerify):
         challenges.pop(user.public_key, None)
         return {'status': 'ok', 'token': jwt, 'id': user_id}
         
-    except :
-        logging.info(Exception)
+    except Exception as ex:
+        logging.info(ex)
         return {'status': 'error'}
     
     
