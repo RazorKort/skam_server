@@ -27,6 +27,7 @@ class AuthRequest(BaseModel):
     public_key:str | None = None
     
 class AuthVerify(BaseModel):
+    signed_message: str | None = None
     signed_seed: str | None = None
     public_key: str | None = None
     
@@ -65,8 +66,9 @@ async def auth(user: AuthRequest):
     
 @app.post('/auth-verify')
 async def auth(user: AuthVerify):
-    logging.info(f'{user.signed_seed} {user.public_key}')
-    signed_bytes = base64.b64decode(user.signed_seed)
+    logging.info(f'{user.signed_seed} {user.public_key} {user.signed_message}')
+    signed_message = base64.b64decode(user.signed_message)
+    signature = base64.b64decode(user.signed_seed)
     public_key = base64.b64decode(user.public_key)
     logging.info(f'{signed_bytes}')
     query = 'SELECT id FROM users WHERE public_key = $1'
@@ -80,7 +82,7 @@ async def auth(user: AuthVerify):
     try:
         verify_key = VerifyKey(public_key)
         
-        verify_key.verify(signed_bytes)
+        verify_key.verify(signed_message,signature)
         jwt = create_jwt(user_id)
         challenges.pop(user.public_key, None)
         return {'status': 'ok', 'token': jwt, 'id': user_id}
