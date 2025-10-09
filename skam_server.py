@@ -70,7 +70,7 @@ async def auth(user: AuthVerify):
     signed_message = base64.b64decode(user.signed_message)
     signature = base64.b64decode(user.signed_seed)
     public_key = base64.b64decode(user.public_key)
-    logging.info(f'{signed_bytes}')
+    logging.info(f'{signature} {signed_message}')
     query = 'SELECT id FROM users WHERE public_key = $1'
     async with app.state.pool.acquire() as conn:
         row = await conn.fetchrow(query, user.public_key)
