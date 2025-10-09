@@ -78,7 +78,7 @@ async def auth(user: AuthVerify):
     if user.public_key not in challenges:
         return {'status': 'error'}
     try:
-        verify_key = VerifyKey(base64.b64decode(user.public_key))
+        verify_key = VerifyKey(public_key)
         
         verify_key.verify(signed_bytes)
         jwt = create_jwt(user_id)
