@@ -4,7 +4,7 @@ import asyncio
 import secrets
 import nacl
 
-from nacl.signing import VerifyKey
+from nacl.signing import SignedMessage, VerifyKey
 from nacl.exceptions import BadSignatureError
 import base64
 
@@ -82,7 +82,7 @@ async def auth(user: AuthVerify):
     try:
         verify_key = VerifyKey(public_key)
         
-        verify_key.verify(signed_message,signature)
+        verify_key.verify(smessage = signed_message,signature = signature)
         jwt = create_jwt(user_id)
         challenges.pop(user.public_key, None)
         return {'status': 'ok', 'token': jwt, 'id': user_id}
