@@ -163,10 +163,12 @@ async def addfr(user: AddFriend):
     
 @app.post('getpublic')
 async def getpublic(target_id: int):
+    logging.info('сюда зашёл')
     query = 'SELECT public_key FROM users WHERE id=$1'
     async with app.state.pool.acquire() as conn:
         public_key = conn.fetchval(query, target_id)
     if public_key is not None:
+        logging.info('vernul ok')
         return {'status': 'ok', 'public_key': public_key}
     else:
         return {'status': 'error'}
