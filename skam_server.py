@@ -220,10 +220,12 @@ async def websocket_endpoint(ws: WebSocket, token:str):
             
             query = 'INSERT INTO messages (sender_id, receiver_id, message, name) VALUES ($1, $2, $3, $4)'
             async with app.state.pool.acquire() as conn:
+                logging.info('подключились к бд')
                 await conn.execute(query, user_id, target_id, message, name)
-
+                logging.info('выполнили запрос')
 
             if target_id in clients and active_chats[user_id] == target_id:
+                logging.info('зашли в условие')
                 await clients[target_id].send_json({'from':user_id, 'message':message, 'name':name})
             else:
                 logging.info(f'{target_id}\n{clients}\n{active_chats[user_id]}\n{user_id}')
