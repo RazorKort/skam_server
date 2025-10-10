@@ -35,8 +35,18 @@ class RegisterRequest(BaseModel):
     name: str | None = None
     public_key: str | None = None
     verify_key: str | None = None
-    
 
+class GetFriends(BaseModel):
+    token: str | None = None
+   
+class AddFriend(BaseModel):
+    token: str | None = None
+    friend_id: int | None = None
+ 
+class LoadMessages(BaseModel):
+    token: str | None = None
+    target_id: int | None = None
+    
 @app.on_event('startup')
 async def startup():
     app.state.pool = await asyncpg.create_pool(DATABASE_URL)
@@ -75,13 +85,14 @@ async def auth(user: AuthVerify):
     
     logging.info(f'{signature} {signed_message}')
     
-    query = 'SELECT id, verify_key FROM users WHERE public_key = $1'
+    query = 'SELECT id, verify_key, nickname FROM users WHERE public_key = $1'
     async with app.state.pool.acquire() as conn:
         row = await conn.fetchrow(query, user.public_key)
     if not row:
         raise HTTPException(status_code = 401, detail = 'User not found')
     
     user_id = row['id']
+    name = row['nickname']
     verify_key = base64.b64decode(row['verify_key'])
     
     if user.public_key not in challenges:
@@ -96,7 +107,7 @@ async def auth(user: AuthVerify):
         
         jwt = create_jwt(user_id)
         challenges.pop(user.public_key, None)
-        return {'status': 'ok', 'token': jwt, 'id': user_id}
+        return {'status': 'ok', 'token': jwt, 'id': user_id, 'name':name}
         
     except Exception as ex:
         logging.info(ex)
@@ -124,9 +135,9 @@ async def register(user: RegisterRequest):
     
 
 @app.post('/friends')
-async def get_friends(token: str):
-    user_id = decode_jwt(token)
-    query = 'SELECT friend_id, nickname FROM friends WHERE user_id = $1'
+async def get_friends(user: GetFriends):
+    user_id = decode_jwt(user.token)
+    query = 'SELECT friend_id, nickname, public_key FROM friends WHERE user_id = $1'
     async with app.state.pool.acquire() as conn:
         rows = await conn.fetch(query, user_id)
     if not rows:
@@ -135,23 +146,26 @@ async def get_friends(token: str):
         friends = [dict(row) for row in rows]
         return {'status':'ok', 'friends':friends}
 
-@app.post('/addfr')
-async def addfr(token: str, friend_id: int):
-    user_id = decode_jwt(token)
-    query = 'SELECT nickname FROM users WHERE id = $1'
+@app.post('/addfriend')
+async def addfr(user: AddFriend):
+    user_id = decode_jwt(user.token)
+    friend_id = user.friend_id
+    query = 'SELECT nickname, public_key FROM users WHERE id = $1'
     async with app.state.pool.acquire() as conn:
-        name = await conn.fetchval(query,friend_id)
-    if name is not None:
-        query = 'INSERT INTO friends (user_id, friend_id, nickname) VALUES ($1, $2, $3)'
+        row = await conn.fetchrow(query,friend_id)
+    if row['name'] is not None:
+        query = 'INSERT INTO friends (user_id, friend_id, nickname, public_key) VALUES ($1, $2, $3, $4)'
         async with app.state.pool.acquire() as conn:
-            await conn.execute(query, user_id, friend_id, name)
+            await conn.execute(query, user_id, friend_id, row['name'], row['public_key'])
             return {'status':'ok'}
     else:
         raise HTTPException(status_code = 404, detail = 'User not found')
     
-@app.post('/msgs')
-async def msgs(token: str, friend_id: int):
-    user_id = decode_jwt(token)
+@app.post('/messages')
+async def msgs(user: LoadMessages):
+    user_id = decode_jwt(user.token)
+    friend_id = user.target_id
+    
     query = 'SELECT * FROM messages WHERE sender_id = $1 AND receiver_id = $2'
     async with app.state.pool.acquire() as conn:
         rows = await conn.fetch(query, user_id, friend_id)
