@@ -18,6 +18,7 @@ import jwt
 app = FastAPI()
 clients = {}
 challenges = {}
+active_chats = {}
 logging.basicConfig(level = logging.INFO)
 DATABASE_URL = os.environ.get('DATABASE_URL')
 JWT_SECRET = os.environ.get('JWT_SECRET', 'secretkey228rfrfuhrs4fs')
@@ -50,6 +51,9 @@ class LoadMessages(BaseModel):
 class GetPublic(BaseModel):
     target_id: int | None = None
     
+class SetActive(BaseModel):
+    token: str | None = None
+    target_id: int | None = None
 
 @app.on_event('startup')
 async def startup():
@@ -190,6 +194,12 @@ async def msgs(user: LoadMessages):
         else: 
             messages = [dict(row) for row in rows]
             return {'status':'ok', 'messages':messages}
+        
+@app.post('/setactive')
+async def setactive(user: SetActive):
+    user_id = decode_jwt(user.token)
+    active_chats[user_id] = user.target_id
+    return {'status':'ok'}
     
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket, token:str):
@@ -213,7 +223,7 @@ async def websocket_endpoint(ws: WebSocket, token:str):
                 await conn.fetch(query, user_id, target_id, message, name)
 
 
-            if target_id in clients:
+            if target_id in clients and active_chats[user_id] == target_id:
                 await clients[target_id].send_json({'from':user_id, 'message':message, 'name':name})
 
     except Exception:
