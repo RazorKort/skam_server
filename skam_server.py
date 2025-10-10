@@ -46,7 +46,11 @@ class AddFriend(BaseModel):
 class LoadMessages(BaseModel):
     token: str | None = None
     target_id: int | None = None
+
+class GetPublic(BaseModel):
+    target_id: int | None = None
     
+
 @app.on_event('startup')
 async def startup():
     app.state.pool = await asyncpg.create_pool(DATABASE_URL)
@@ -162,11 +166,11 @@ async def addfr(user: AddFriend):
         raise HTTPException(status_code = 404, detail = 'User not found')
     
 @app.post('getpublic')
-async def getpublic(target_id: int):
+async def getpublic(user: GetPublic):
     logging.info('сюда зашёл')
     query = 'SELECT public_key FROM users WHERE id=$1'
     async with app.state.pool.acquire() as conn:
-        public_key = conn.fetchval(query, target_id)
+        public_key = conn.fetchval(query, user.target_id)
     if public_key is not None:
         logging.info('vernul ok')
         return {'status': 'ok', 'public_key': public_key}
