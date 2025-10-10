@@ -137,7 +137,7 @@ async def register(user: RegisterRequest):
 @app.post('/friends')
 async def get_friends(user: GetFriends):
     user_id = decode_jwt(user.token)
-    query = 'SELECT friend_id, nickname, public_key FROM friends WHERE user_id = $1'
+    query = 'SELECT friend_id, nickname FROM friends WHERE user_id = $1'
     async with app.state.pool.acquire() as conn:
         rows = await conn.fetch(query, user_id)
     if not rows:
@@ -150,17 +150,27 @@ async def get_friends(user: GetFriends):
 async def addfr(user: AddFriend):
     user_id = decode_jwt(user.token)
     friend_id = user.friend_id
-    query = 'SELECT nickname, public_key FROM users WHERE id = $1'
+    query = 'SELECT nickname FROM users WHERE id = $1'
     async with app.state.pool.acquire() as conn:
         row = await conn.fetchrow(query,friend_id)
-    if row['name'] is not None:
-        query = 'INSERT INTO friends (user_id, friend_id, nickname, public_key) VALUES ($1, $2, $3, $4)'
+    if row['nickname'] is not None:
+        query = 'INSERT INTO friends (user_id, friend_id, nickname) VALUES ($1, $2, $3)'
         async with app.state.pool.acquire() as conn:
-            await conn.execute(query, user_id, friend_id, row['name'], row['public_key'])
+            await conn.execute(query, user_id, friend_id, row['nickname'])
             return {'status':'ok'}
     else:
         raise HTTPException(status_code = 404, detail = 'User not found')
     
+@app.post('getpublic')
+async def getpublic(target_id: int):
+    query = 'SELECT public_key FROM users WHERE id=$1'
+    async with app.state.pool.acquire() as conn:
+        public_key = conn.fetchval(query, target_id)
+    if public_key is not None:
+        return {'status': 'ok', 'public_key': public_key}
+    else:
+        return {'status': 'error'}
+
 @app.post('/messages')
 async def msgs(user: LoadMessages):
     user_id = decode_jwt(user.token)
