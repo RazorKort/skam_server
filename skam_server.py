@@ -165,7 +165,7 @@ async def addfr(user: AddFriend):
     else:
         raise HTTPException(status_code = 404, detail = 'User not found')
     
-@app.post('getpublic')
+@app.post('/getpublic')
 async def getpublic(user: GetPublic):
     logging.info('сюда зашёл')
     query = 'SELECT public_key FROM users WHERE id=$1'
