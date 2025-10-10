@@ -34,6 +34,7 @@ class AuthVerify(BaseModel):
 class RegisterRequest(BaseModel):
     name: str | None = None
     public_key: str | None = None
+    verify_key: str | None = None
     
 
 @app.on_event('startup')
@@ -66,23 +67,33 @@ async def auth(user: AuthRequest):
     
 @app.post('/auth-verify')
 async def auth(user: AuthVerify):
-    logging.info(f'{user.signed_seed} {user.public_key} {user.signed_message}')
+    logging.info(f'{user.signed_seed} \n {user.public_key} \n {user.signed_message}')
+    
     signed_message = base64.b64decode(user.signed_message)
     signature = base64.b64decode(user.signed_seed)
     public_key = base64.b64decode(user.public_key)
+    
     logging.info(f'{signature} {signed_message}')
-    query = 'SELECT id FROM users WHERE public_key = $1'
+    
+    query = 'SELECT id, verify_key FROM users WHERE public_key = $1'
     async with app.state.pool.acquire() as conn:
         row = await conn.fetchrow(query, user.public_key)
     if not row:
         raise HTTPException(status_code = 401, detail = 'User not found')
+    
     user_id = row['id']
+    verify_key = row['verify_key']
+    
     if user.public_key not in challenges:
         return {'status': 'error'}
+    
     try:
-        verify_key = VerifyKey(public_key)
+        logging.info(verify_key)
+        verify_key = VerifyKey(verify_key)
         
-        verify_key.verify(smessage = signed_message,signature = signature)
+        verify_key.verify(signed_message, signature)
+        logging.info('Заебись')
+        
         jwt = create_jwt(user_id)
         challenges.pop(user.public_key, None)
         return {'status': 'ok', 'token': jwt, 'id': user_id}
@@ -97,9 +108,13 @@ async def auth(user: AuthVerify):
 async def register(user: RegisterRequest):
     if not user.name:
         raise HTTPException(status_code = 400, detail = 'Name rquired')
-    query = 'INSERT INTO users (public_key, nickname) VALUES ($1, $2) RETURNING id'
+    if not user.public_key:
+        raise HTTPException(status_code = 400, detail = 'Public key required')
+    if not user.verify_key:
+        raise HTTPException(status_code = 400, detail = 'Verify key required')
+    query = 'INSERT INTO users (public_key, nickname, verify_key) VALUES ($1, $2, $3) RETURNING id'
     async with app.state.pool.acquire() as conn:
-        user_id = await conn.fetchval(query, user.public_key, user.name)
+        user_id = await conn.fetchval(query, user.public_key, user.name, user.verify_key)
         
     if user_id:
         token = create_jwt(user_id)
