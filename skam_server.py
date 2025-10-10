@@ -186,7 +186,7 @@ async def msgs(user: LoadMessages):
     user_id = decode_jwt(user.token)
     friend_id = user.target_id
     
-    query = 'SELECT * FROM messages WHERE sender_id = $1 AND receiver_id = $2'
+    query = 'SELECT * FROM messages WHERE (sender_id = $1 AND receiver_id = $2) OR (sender_id = $2 AND receiver_id = $1) ORDER BY created_at ASC'
     async with app.state.pool.acquire() as conn:
         rows = await conn.fetch(query, user_id, friend_id)
         if not rows:
