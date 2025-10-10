@@ -82,7 +82,7 @@ async def auth(user: AuthVerify):
         raise HTTPException(status_code = 401, detail = 'User not found')
     
     user_id = row['id']
-    verify_key = row['verify_key']
+    verify_key = base64.b64decode(row['verify_key'])
     
     if user.public_key not in challenges:
         return {'status': 'error'}
