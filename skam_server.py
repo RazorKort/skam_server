@@ -183,7 +183,7 @@ async def addfr(user: AddFriend):
 async def rmfr(user: RemoveFriend):
     user_id = decode_jwt(user.token)
     query = 'DELETE from friends WHERE user_id = $1 and friend_id = $2'
-    async with app.state.pool.acquire as conn:
+    async with app.state.pool.acquire() as conn:
         res = await conn.execute(query, user_id, user.target_id)
     if res == 'DELETE 1':
         return {'status': 'ok'}
