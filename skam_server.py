@@ -164,8 +164,8 @@ async def addfr(user: AddFriend):
     async with app.state.pool.acquire() as conn:
         row = await conn.fetchrow(query,friend_id)
         row2 = await conn.fetchrow(query2, user_id, friend_id)
-    if row['nickname'] is not None:
-        if row2['nickname'] is None:
+    if row is not None:
+        if row2 is None:
             query = 'INSERT INTO friends (user_id, friend_id, nickname) VALUES ($1, $2, $3)'
             async with app.state.pool.acquire() as conn:
                 await conn.execute(query, user_id, friend_id, row['nickname'])
