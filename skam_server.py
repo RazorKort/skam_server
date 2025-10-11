@@ -44,6 +44,10 @@ class AddFriend(BaseModel):
     token: str | None = None
     friend_id: int | None = None
  
+class RemoveFriend(BaseModel):
+    token: str | None = None
+    target_id:int | None = None
+
 class LoadMessages(BaseModel):
     token: str | None = None
     target_id: int | None = None
@@ -174,7 +178,18 @@ async def addfr(user: AddFriend):
             return {'status': 'error', 'details':'58'}
     else:
         return {'status':'error', 'details': '404'}
-    
+
+@app.post('/removefriend')
+async def rmfr(user: RemoveFriend):
+    user_id = decode_jwt(user.token)
+    query = 'DELETE from friends WHERE user_id = $1 and friend_id = $2'
+    async with app.state.pool.acquire as conn:
+        res = await conn.execute(query, user_id, user.target_id)
+    if res == 'DELETE 1':
+        return {'status': 'ok'}
+    else:
+        return {'status': 'error'}
+
 @app.post('/getpublic')
 async def getpublic(user: GetPublic):
     logging.info('сюда зашёл')
