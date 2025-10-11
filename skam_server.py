@@ -190,6 +190,15 @@ async def rmfr(user: RemoveFriend):
     else:
         return {'status': 'error'}
 
+@app.post('/removechat')
+async def rmchat(user: RemoveFriend):
+    user_id = decode_jwt(user.token)
+    query = 'DELETE from messages WHERE sender_id = $1 AND target_id = $2 OR sender_id = $2 AND target_id = $1'
+    async with app.state.pool.acquire() as conn:
+        res = conn.execute(query, user_id, user.target_id)
+    return {'status':'ok'}
+
+
 @app.post('/getpublic')
 async def getpublic(user: GetPublic):
     logging.info('сюда зашёл')
