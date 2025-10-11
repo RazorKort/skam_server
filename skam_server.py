@@ -205,8 +205,13 @@ async def setactive(user: SetActive):
 @app.post('/changename')
 async def changename(user: ChangeNickname):
     user_id = decode_jwt(user.token)
-    query = 'UPDATE users SET nickname = $1 WHERE id = $2; UPDATE messages SET name = $1 WHERE sender_id = $2; UPDATE friends SET nickname = $1 WHERE friend_id = $2'
+    
     async with app.state.pool.acquire() as conn:
+        query = 'UPDATE users SET nickname = $1 WHERE id = $2'
+        await conn.execute(query, user.new_name, user_id)
+        query = 'UPDATE messages SET name = $1 WHERE sender_id = $2'
+        await conn.execute(query, user.new_name, user_id)
+        query = 'UPDATE friends SET nickname = $1 WHERE friend_id = $2'
         result = await conn.execute(query, user.new_name, user_id)
     if result == 'UPDATE 1':
         return {'status': 'ok'}
