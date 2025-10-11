@@ -160,15 +160,20 @@ async def addfr(user: AddFriend):
     user_id = decode_jwt(user.token)
     friend_id = user.friend_id
     query = 'SELECT nickname FROM users WHERE id = $1'
+    query2 = 'SELECT nickname FROM friends WHERE user_id = $1 AND friend_id = $2'
     async with app.state.pool.acquire() as conn:
         row = await conn.fetchrow(query,friend_id)
+        row2 = await conn.fetchrow(query, user_id, friend_id)
     if row['nickname'] is not None:
-        query = 'INSERT INTO friends (user_id, friend_id, nickname) VALUES ($1, $2, $3)'
-        async with app.state.pool.acquire() as conn:
-            await conn.execute(query, user_id, friend_id, row['nickname'])
-            return {'status':'ok'}
+        if row2['nickname'] is None:
+            query = 'INSERT INTO friends (user_id, friend_id, nickname) VALUES ($1, $2, $3)'
+            async with app.state.pool.acquire() as conn:
+                await conn.execute(query, user_id, friend_id, row['nickname'])
+                return {'status':'ok'}
+        else:
+            return {'status': 'error', 'details':'58'}
     else:
-        raise HTTPException(status_code = 404, detail = 'User not found')
+        return {'status':'error', 'details': '404'}
     
 @app.post('/getpublic')
 async def getpublic(user: GetPublic):
