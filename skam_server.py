@@ -198,6 +198,17 @@ async def rmchat(user: RemoveFriend):
         res = await conn.execute(query, user_id, user.target_id)
     return {'status':'ok'}
 
+@app.post('/remove')
+async def removeall(user: GetFriends):
+    user_id = decode_jwt(user.token)
+    async with app.state.pool.acquire() as conn:
+        query = 'DELETE from messages WHERE sender_id = $1 or receiver_id = $1'
+        await conn.execute(query, user_id)
+        query = 'DELETE from friends WHERE user_id = $1 or friend_id = $1'
+        await conn.execute(query, user_id)
+        query = 'DELETE from users WHERE id = $1'
+        await conn.execute(query, user_id)
+    return {'status': 'ok'}
 
 @app.post('/getpublic')
 async def getpublic(user: GetPublic):
