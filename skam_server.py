@@ -55,6 +55,11 @@ class SetActive(BaseModel):
     token: str | None = None
     target_id: int | None = None
 
+class ChangeNickname(BaseModel):
+    token: str | None = None
+    new_name: str | None = None
+    
+
 @app.on_event('startup')
 async def startup():
     app.state.pool = await asyncpg.create_pool(DATABASE_URL)
@@ -81,8 +86,7 @@ async def auth(user: AuthRequest):
         seed = secrets.token_urlsafe(32)
         challenges[user.public_key] = seed
         return {'status': 'ok', 'seed': seed}
- 
-    
+   
 @app.post('/auth-verify')
 async def auth(user: AuthVerify):
     logging.info(f'{user.signed_seed} \n {user.public_key} \n {user.signed_message}')
@@ -121,8 +125,6 @@ async def auth(user: AuthVerify):
         logging.info(ex)
         return {'status': 'error'}
     
-    
-
 @app.post('/register')
 async def register(user: RegisterRequest):
     if not user.name:
@@ -141,7 +143,6 @@ async def register(user: RegisterRequest):
     else:
         return JSONResponse(status_code = 401, content = {'status':'error', 'detail':'Unauthorized'})
     
-
 @app.post('/friends')
 async def get_friends(user: GetFriends):
     user_id = decode_jwt(user.token)
@@ -200,7 +201,18 @@ async def setactive(user: SetActive):
     user_id = decode_jwt(user.token)
     active_chats[user_id] = user.target_id
     return {'status':'ok'}
-    
+
+@app.post('/changename')
+async def changename(user: ChangeNickname):
+    user_id = decode_jwt(user.token)
+    query = 'UPDATE users SET nicname = $1 WHERE id = $2'
+    async with app.state.pool() as conn:
+        result = await conn.execute(query, user.new_name, user_id)
+    if result == 'UPDATE 1':
+        return {'status': 'ok'}
+    else:
+        return {'status': 'error'}
+
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket, token:str):
     try:
