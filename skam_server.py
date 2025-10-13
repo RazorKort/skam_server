@@ -1,4 +1,4 @@
-import logging
+
 import os
 import asyncio
 import secrets
@@ -19,9 +19,9 @@ app = FastAPI()
 clients = {}
 challenges = {}
 active_chats = {}
-logging.basicConfig(level = logging.INFO)
+
 DATABASE_URL = os.environ.get('DATABASE_URL')
-JWT_SECRET = os.environ.get('JWT_SECRET', 'secretkey228rfrfuhrs4fs')
+JWT_SECRET = os.environ.get('JWT_SECRET')
 JWT_ALGORITHM = 'HS256'
 
 class AuthRequest(BaseModel):
@@ -93,13 +93,11 @@ async def auth(user: AuthRequest):
    
 @app.post('/auth-verify')
 async def auth(user: AuthVerify):
-    logging.info(f'{user.signed_seed} \n {user.public_key} \n {user.signed_message}')
     
     signed_message = base64.b64decode(user.signed_message)
     signature = base64.b64decode(user.signed_seed)
     public_key = base64.b64decode(user.public_key)
     
-    logging.info(f'{signature} {signed_message}')
     
     query = 'SELECT id, verify_key, nickname FROM users WHERE public_key = $1'
     async with app.state.pool.acquire() as conn:
@@ -115,18 +113,16 @@ async def auth(user: AuthVerify):
         return {'status': 'error'}
     
     try:
-        logging.info(verify_key)
+        
         verify_key = VerifyKey(verify_key)
         
         verify_key.verify(signed_message, signature)
-        logging.info('Заебись')
         
         jwt = create_jwt(user_id)
         challenges.pop(user.public_key, None)
         return {'status': 'ok', 'token': jwt, 'id': user_id, 'name':name}
         
     except Exception as ex:
-        logging.info(ex)
         return {'status': 'error'}
     
 @app.post('/register')
@@ -212,12 +208,10 @@ async def removeall(user: GetFriends):
 
 @app.post('/getpublic')
 async def getpublic(user: GetPublic):
-    logging.info('сюда зашёл')
     query = 'SELECT public_key FROM users WHERE id=$1'
     async with app.state.pool.acquire() as conn:
         public_key = await conn.fetchval(query, user.target_id)
     if public_key is not None:
-        logging.info('vernul ok')
         return {'status': 'ok', 'public_key': public_key}
     else:
         return {'status': 'error'}
@@ -273,19 +267,15 @@ async def websocket_endpoint(ws: WebSocket, token:str):
             target_id = msg_data.get('target_id')
             message = msg_data.get('message')
             name = msg_data.get('name')
-            logging.info(f'{target_id}, {name}, {message}')
             
             query = 'INSERT INTO messages (sender_id, receiver_id, message, name) VALUES ($1, $2, $3, $4)'
             async with app.state.pool.acquire() as conn:
-                logging.info('подключились к бд')
                 await conn.execute(query, user_id, target_id, message, name)
-                logging.info('выполнили запрос')
+                
 
             if target_id in clients and active_chats[user_id] == target_id:
-                logging.info('зашли в условие')
                 await clients[target_id].send_json({'from':user_id, 'message':message, 'name':name})
             else:
-                logging.info(f'{target_id}\n{clients}\n{active_chats[user_id]}\n{user_id}')
     except Exception:
         pass
     finally:
