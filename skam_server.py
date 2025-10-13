@@ -275,7 +275,6 @@ async def websocket_endpoint(ws: WebSocket, token:str):
 
             if target_id in clients and active_chats[user_id] == target_id:
                 await clients[target_id].send_json({'from':user_id, 'message':message, 'name':name})
-            else:
     except Exception:
         pass
     finally:
