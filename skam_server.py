@@ -63,7 +63,8 @@ class ChangeNickname(BaseModel):
     token: str | None = None
     new_name: str | None = None
     
-
+class Search(BaseModel):
+    name: str | None = None
 @app.on_event('startup')
 async def startup():
     app.state.pool = await asyncpg.create_pool(DATABASE_URL)
@@ -252,6 +253,17 @@ async def changename(user: ChangeNickname):
     else:
         return {'status': 'error'}
 
+@app.post('search')
+async def search(user: Search):
+    query = 'SELECT user_id nickname FROM users WHERE nickname LIKE %$1%'
+    with app.state.pool.acquire() as conn:
+        rows = await conn.fetch(query, user.name)
+    if not rows:
+        return {'status', 'nothing'}
+    else:
+        users = [dict(row) for row in rows]
+        return {'status': 'ok', 'users': users}
+     
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket, token:str):
     try:
