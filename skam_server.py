@@ -255,7 +255,7 @@ async def changename(user: ChangeNickname):
 
 @app.post('/search')
 async def search(user: Search):
-    query = 'SELECT user_id nickname FROM users WHERE nickname LIKE $1'
+    query = 'SELECT id nickname FROM users WHERE nickname LIKE $1'
     async with app.state.pool.acquire() as conn:
         rows = await conn.fetch(query, f'%{user.name}%')
     if not rows:
