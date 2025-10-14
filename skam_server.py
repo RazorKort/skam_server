@@ -253,7 +253,7 @@ async def changename(user: ChangeNickname):
     else:
         return {'status': 'error'}
 
-@app.post('search')
+@app.post('/search')
 async def search(user: Search):
     query = 'SELECT user_id nickname FROM users WHERE nickname LIKE $1'
     with app.state.pool.acquire() as conn:
