@@ -1,4 +1,4 @@
-
+import logging
 import os
 import asyncio
 import secrets
@@ -14,8 +14,9 @@ import uvicorn
 import asyncpg
 from pydantic import BaseModel
 import jwt
-
+print("======= Server started =======")
 app = FastAPI()
+logger = logging.getLogger("uvicorn.error")
 clients = {}
 challenges = {}
 active_chats = {}
@@ -78,6 +79,10 @@ async def shutdown():
 async def healthcheck():
     return {"status": "ok"}
 
+@app.post('/ping')
+async def ping():
+    return {'status':'pong'}
+
 @app.post('/auth-request')
 async def auth(user: AuthRequest):
 
@@ -111,7 +116,7 @@ async def auth(user: AuthVerify):
     verify_key = base64.b64decode(row['verify_key'])
     
     if user.public_key not in challenges:
-        return {'status': 'error'}
+        raise HTTPException(status_code = 401, detail = 'no challanges for user')
     
     try:
         
@@ -124,6 +129,7 @@ async def auth(user: AuthVerify):
         return {'status': 'ok', 'token': jwt, 'id': user_id, 'name':name}
         
     except Exception as ex:
+        logger.exception(ex)
         return {'status': 'error'}
     
 @app.post('/register')
@@ -172,9 +178,9 @@ async def addfr(user: AddFriend):
                 await conn.execute(query, user_id, friend_id, row['nickname'])
                 return {'status':'ok'}
         else:
-            return {'status': 'error', 'details':'58'}
+            return {'status': 'error', 'detail':'58'}
     else:
-        return {'status':'error', 'details': '404'}
+        return {'status':'error', 'detail': '404'}
 
 @app.post('/removefriend')
 async def rmfr(user: RemoveFriend):
@@ -182,7 +188,7 @@ async def rmfr(user: RemoveFriend):
     query = 'DELETE from friends WHERE user_id = $1 and friend_id = $2'
     async with app.state.pool.acquire() as conn:
         res = await conn.execute(query, user_id, user.target_id)
-    if res == 'DELETE 1':
+    if res.startswith('DELETE'):
         return {'status': 'ok'}
     else:
         return {'status': 'error'}
@@ -230,12 +236,6 @@ async def msgs(user: LoadMessages):
         else: 
             messages = [dict(row) for row in rows]
             return {'status':'ok', 'messages':messages}
-        
-@app.post('/setactive')
-async def setactive(user: SetActive):
-    user_id = decode_jwt(user.token)
-    active_chats[user_id] = user.target_id
-    return {'status':'ok'}
 
 @app.post('/changename')
 async def changename(user: ChangeNickname):
@@ -248,7 +248,7 @@ async def changename(user: ChangeNickname):
         await conn.execute(query, user.new_name, user_id)
         query = 'UPDATE friends SET nickname = $1 WHERE friend_id = $2'
         result = await conn.execute(query, user.new_name, user_id)
-    if result == 'UPDATE 1':
+    if result.startswith('UPDATE'):
         return {'status': 'ok'}
     else:
         return {'status': 'error'}
@@ -285,7 +285,7 @@ async def websocket_endpoint(ws: WebSocket, token:str):
                 await conn.execute(query, user_id, target_id, message, name)
                 
 
-            if target_id in clients and active_chats[user_id] == target_id:
+            if target_id in clients:
                 await clients[target_id].send_json({'from':user_id, 'message':message, 'name':name})
     except Exception:
         pass
