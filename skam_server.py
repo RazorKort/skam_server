@@ -153,7 +153,7 @@ async def register(user: RegisterRequest):
 @app.post('/friends')
 async def get_friends(user: GetFriends):
     user_id = decode_jwt(user.token)
-    query = 'SELECT friend_id, nickname FROM friends WHERE user_id = $1'
+    query = 'SELECT u.id, u.nickname, u.public_key, u.verify_key FROM friends f JOIN users u ON u.id = f.friend_id WHERE f.user_id = $1'
     async with app.state.pool.acquire() as conn:
         rows = await conn.fetch(query, user_id)
     if not rows:
