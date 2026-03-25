@@ -276,17 +276,18 @@ async def websocket_endpoint(ws: WebSocket, token:str):
     try:
         while True:
             msg_data = await ws.receive_json()
+            
             receiver_id = msg_data.get('receiver_id')
             message = msg_data.get('message')
-            name = msg_data.get('name')
+            created_at = msg_data.get('created_at')
             
-            query = 'INSERT INTO messages (sender_id, receiver_id, message, name) VALUES ($1, $2, $3, $4)'
+            query = 'INSERT INTO messages (sender_id, receiver_id, message, created_at) VALUES ($1, $2, $3, $4) RETURNING id'
             async with app.state.pool.acquire() as conn:
-                await conn.execute(query, user_id, receiver_id, message, name)
-                
+                msg_id = await conn.fetchval(query, user_id, receiver_id, message, created_at)
+            await ws.send_json({'type':'ack', 'id':msg_id, 'created_at':created_at, 'receiver_id':receiver_id })
 
             if receiver_id in clients:
-                await clients[receiver_id].send_json({'from':user_id, 'message':message, 'name':name})
+                await clients[receiver_id].send_json({'type':'message','sender_id':user_id, 'message':message, 'receiver_id':receiver_id, 'id':msg_id, 'created_at': created_at})
     except Exception as e:
         logger.exception(e)
         pass
